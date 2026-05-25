@@ -21,7 +21,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.net.Authenticator;
 import java.time.Duration;
 
 @RestController
@@ -56,9 +55,9 @@ public class AuthController {
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request, HttpServletResponse response) {
         LoginResponse tokens = authService.login(request);
 
-        ResponseCookie refresCookie = ResponseCookie.from("refresToken", tokens.refreshtoken())
+        ResponseCookie refresCookie = ResponseCookie.from("refreshToken", tokens.refreshtoken())
                 .httpOnly(true)
-                .secure(true) //prod
+                .secure(false) //Ici je dois mettre true en production cause https
                 .sameSite("Strict")
                 .path("/auth/refresh")
                 .maxAge(Duration.ofDays(7))

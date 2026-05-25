@@ -1,0 +1,22 @@
+package com.example.TestAPI.DTO.Job;
+
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public record UpdateJobRequest(
+        @Size(min = 3, max = 100, message = "Le titre doit contenir entre 3 et 100 caractères")
+        String title,
+
+        @Size(max = 500, message = "La description ne peut pas dépasser 500 caractères")
+        String description,
+
+        String location,
+
+        @Positive(message = "Le prix doit être positif")
+        BigDecimal price,
+
+        List<String> images
+) { }

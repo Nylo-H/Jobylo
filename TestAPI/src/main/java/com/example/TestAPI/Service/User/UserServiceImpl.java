@@ -51,8 +51,8 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(UserNotFoundException::new);
 
         // ⚡ Mise à jour champ par champ
-        existingUser.setNom(user.getNom());
-        existingUser.setPrenom(user.getPrenom());
+        existingUser.setFirstName(user.getFirstName());
+        existingUser.setLastName(user.getLastName());
         existingUser.setUsername(user.getUsername());
         existingUser.setEmail(user.getEmail());
         existingUser.setPhotoProfil(user.getPhotoProfil());

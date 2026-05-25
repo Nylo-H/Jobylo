@@ -29,8 +29,15 @@ spring:
           starttls:
             enable: false
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
 server:
   port: 8080
+  servlet:
+    context-path: /api
 
 jwt:
   expiration: 86400000
@@ -39,6 +46,13 @@ jwt:
 springdoc:
   swagger-ui:
     path: /swagger-ui/
+
+file:
+  upload-dir: uploads/kyc
+
+payment:
+  commission-percentage: 5
+  default-method: DEMO
 
 logging:
   level:

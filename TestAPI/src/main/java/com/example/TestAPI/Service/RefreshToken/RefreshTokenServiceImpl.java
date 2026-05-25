@@ -5,6 +5,7 @@ import com.example.TestAPI.Model.RefreshToken;
 import com.example.TestAPI.Model.User;
 import com.example.TestAPI.Repository.RefreshTokenRepository;
 import com.example.TestAPI.exception.BusinessException;
+import com.example.TestAPI.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -33,9 +34,9 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     @Override
     public RefreshToken validateRefreshToken(String token) {
-        RefreshToken refreshToken = repo.findByToken(token).orElseThrow(()-> new BusinessException("Refresh Token Invalide"));
+        RefreshToken refreshToken = repo.findByToken(token).orElseThrow(()-> new BusinessException("Refresh Token Invalide", ErrorCode.UNAUTHORIZED));
         if(refreshToken.getExpiration().isBefore(LocalDateTime.now())) {
-            throw new BusinessException("Refresh Token Expiré");
+            throw new BusinessException("Refresh Token Expiré", ErrorCode.UNAUTHORIZED);
         }
         return refreshToken;
     }

@@ -4,11 +4,18 @@ import com.example.TestAPI.DTO.Job.JobResponse;
 import com.example.TestAPI.Model.JobOffer;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.factory.Mappers;
 
+@Mapper(componentModel = "spring")
 public interface JobOfferMapper {
 
-    @Mapping(source = "creator.username", target = "creatorUsername")
-    @Mapping(source = "assignee.username", target = "assigneeUsername")
-    JobResponse toDTO(JobOffer job);
+    JobOfferMapper INSTANCE = Mappers.getMapper(JobOfferMapper.class);
 
+    @Mapping(source = "creator.id", target = "creatorId")
+    @Mapping(source = "creator.username", target = "creatorUsername")
+    @Mapping(source = "worker.id", target = "workerId")
+    @Mapping(source = "worker.username", target = "workerUsername")
+    @Mapping(source = "status", target = "status")
+    @Mapping(target = "images", expression = "java(job.getImages() == null ? java.util.List.of() : job.getImages())")
+    JobResponse toDTO(JobOffer job);
 }

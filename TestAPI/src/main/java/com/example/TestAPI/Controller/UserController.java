@@ -23,8 +23,8 @@ public class UserController {
     @PostMapping
     public UserResponse createUser(@RequestBody UserCreateRequest request) {
         return userService.createUser(User.builder()
-                .nom(request.firstName())
-                .prenom(request.lastName())
+                .firstName(request.firstName())
+                .lastName(request.lastName())
                 .username(request.username())
                 .email(request.email())
                 .photoProfil(request.photoProfile())
@@ -44,8 +44,8 @@ public class UserController {
     @PutMapping("/{id}")
     public UserResponse updateUser(@PathVariable UUID id, @RequestBody UserUpdateRequest request) {
         User userToUpdate = User.builder()
-                .nom(request.firstName())
-                .prenom(request.lastName())
+                .firstName(request.firstName())
+                .lastName(request.lastName())
                 .username(request.username())
                 .email(request.email())
                 .photoProfil(request.photoProfile())

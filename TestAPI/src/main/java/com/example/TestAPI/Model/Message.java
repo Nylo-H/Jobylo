@@ -26,6 +26,10 @@ public class Message {
     @JoinColumn(name = "job_id")
     private JobOffer job;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "conversation_id", nullable = false)
+    private Conversation conversation;
+
     private String content;
 
     @Temporal(TemporalType.TIMESTAMP)

@@ -7,11 +7,14 @@ import com.example.TestAPI.DTO.Me.MeResponse;
 import com.example.TestAPI.DTO.Token.RefreshRequest;
 import com.example.TestAPI.DTO.User.UserResponse;
 import com.example.TestAPI.Mapper.UserMapper;
+import com.example.TestAPI.Model.Enum.ActionType;
+import com.example.TestAPI.Model.Enum.KycStatus;
 import com.example.TestAPI.Model.Enum.Role;
 import com.example.TestAPI.Model.RefreshToken;
 import com.example.TestAPI.Model.User;
 import com.example.TestAPI.Repository.UserRepository;
 import com.example.TestAPI.Security.JwtService;
+import com.example.TestAPI.Service.Audit.AuditService;
 import com.example.TestAPI.Service.Otp.OtpService;
 import com.example.TestAPI.Service.RefreshToken.RefreshTokenService;
 import com.example.TestAPI.exception.InvalidPasswordException;
@@ -31,13 +34,15 @@ public class AuthServiceImpl implements AuthService {
     private final OtpService otpService;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final RefreshTokenService refreshTokenService;
+    private final AuditService auditService;
 
-    public AuthServiceImpl(UserRepository userRepo, JwtService jwtService, UserMapper userMapper, OtpService otpService, RefreshTokenService refreshTokenService) {
+    public AuthServiceImpl(UserRepository userRepo, JwtService jwtService, UserMapper userMapper, OtpService otpService, RefreshTokenService refreshTokenService, AuditService auditService) {
         this.userRepo = userRepo;
         this.jwtService = jwtService;
         this.userMapper = userMapper;
         this.otpService = otpService;
         this.refreshTokenService = refreshTokenService;
+        this.auditService = auditService;
     }
 
     @Override
@@ -70,16 +75,19 @@ public class AuthServiceImpl implements AuthService {
 
         // Création de l'utilisateur
         User user = User.builder()
-                .nom(request.lastName())
-                .prenom(request.firstName())
+                .firstName(request.firstName())
+                .lastName(request.lastName())
                 .username(request.username())
                 .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
                 .role(Role.USER)
                 .verified(false)
+                .kycStatus(KycStatus.PENDING)
                 .build();
 
         User saved = userRepo.save(user);
+
+        auditService.log(saved, ActionType.REGISTER, "User: " + saved.getId());
 
         // Génération OTP après création
         otpService.generateAndSendOtp(saved);
@@ -106,6 +114,7 @@ public class AuthServiceImpl implements AuthService {
             throw new UserNotVerifiedException();
         }
 
+        auditService.log(user, ActionType.LOGIN, "User: " + user.getId());
         String acesstoken = jwtService.generateToken(user.getUsername());
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
         return new LoginResponse(acesstoken, refreshToken.getToken());

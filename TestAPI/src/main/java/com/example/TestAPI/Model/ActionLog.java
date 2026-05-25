@@ -23,6 +23,8 @@ public class ActionLog {
     @Column(nullable = false)
     private ActionType action;
 
+    private String details;
+
     @Temporal(TemporalType.TIMESTAMP)
     private Date timestamp;
 }

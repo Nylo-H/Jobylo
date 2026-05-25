@@ -40,4 +40,6 @@ public class KycDocument {
 
     @Enumerated(EnumType.STRING)
     private KycStatus status;
+
+    private String rejectionReason;
 }

@@ -4,7 +4,9 @@ import com.example.TestAPI.Model.Enum.JobStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -41,4 +43,10 @@ public class JobOffer {
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date updatedAt;
+
+    @ElementCollection
+    @CollectionTable(name = "job_images", joinColumns = @JoinColumn(name = "job_id"))
+    @Column(name = "image_url", length = 512)
+    @Builder.Default
+    private List<String> images = new ArrayList<>();
 }

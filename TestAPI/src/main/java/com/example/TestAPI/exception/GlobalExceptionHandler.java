@@ -53,9 +53,12 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handleUserAlreadyVerified(BusinessException ex) {
+    public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException ex) {
+
+        HttpStatus status = HttpStatus.valueOf(ex.getErrorCode().getStatusCode());
+
         return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
+                .status(status)
                 .body(new ErrorResponse(ex.getMessage()));
     }
 

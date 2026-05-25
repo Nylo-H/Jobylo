@@ -8,7 +8,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 
@@ -23,10 +22,11 @@ public class User {
     private UUID id;
 
     @Column(nullable = false)
-    private String nom;
+    private String firstName;
+
 
     @Column(nullable = false)
-    private String prenom;
+    private String lastName;
 
     @Column(nullable = false, unique = true)
     private String username;
