@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 public record CreateJobRequest(
         @NotBlank(message = "Le titre est obligatoire")
@@ -19,5 +20,7 @@ public record CreateJobRequest(
         @Positive(message = "Le prix doit être positif")
         BigDecimal price,
 
-        List<String> images
+        List<String> images,
+
+        UUID categoryId
 ) { }

@@ -17,5 +17,7 @@ public interface JobOfferMapper {
     @Mapping(source = "worker.username", target = "workerUsername")
     @Mapping(source = "status", target = "status")
     @Mapping(target = "images", expression = "java(job.getImages() == null ? java.util.List.of() : job.getImages())")
+    @Mapping(target = "categoryId", expression = "java(job.getCategory() != null ? job.getCategory().getId() : null)")
+    @Mapping(target = "categoryName", expression = "java(job.getCategory() != null ? job.getCategory().getName() : null)")
     JobResponse toDTO(JobOffer job);
 }

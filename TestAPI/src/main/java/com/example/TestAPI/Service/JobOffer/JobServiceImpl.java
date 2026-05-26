@@ -5,18 +5,25 @@ import com.example.TestAPI.DTO.Job.CreateJobRequest;
 import com.example.TestAPI.DTO.Job.UpdateJobRequest;
 import com.example.TestAPI.Model.Enum.ActionType;
 import com.example.TestAPI.Model.Enum.JobStatus;
+import com.example.TestAPI.Model.JobCategory;
 import com.example.TestAPI.Model.JobOffer;
 import com.example.TestAPI.Model.User;
+import com.example.TestAPI.Repository.JobCategoryRepository;
 import com.example.TestAPI.Repository.JobOfferRepository;
 import com.example.TestAPI.Repository.UserRepository;
 import com.example.TestAPI.Service.Audit.AuditService;
 import com.example.TestAPI.Service.Audit.KycGuard;
 import com.example.TestAPI.exception.BusinessException;
 import com.example.TestAPI.exception.ErrorCode;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -28,12 +35,19 @@ public class JobServiceImpl implements JobService{
 
     private final JobOfferRepository jobRepository;
     private final UserRepository userRepository;
+    private final JobCategoryRepository categoryRepository;
     private final KycGuard kycGuard;
     private final AuditService auditService;
 
     @Override
     public JobOffer createJob(User creator, CreateJobRequest request) {
         kycGuard.requireVerified(creator);
+
+        JobCategory category = null;
+        if (request.categoryId() != null) {
+            category = categoryRepository.findById(request.categoryId())
+                    .orElseThrow(() -> new BusinessException("Catégorie non trouvée", ErrorCode.NOT_FOUND));
+        }
 
         JobOffer job = JobOffer.builder()
                 .title(request.title())
@@ -45,6 +59,7 @@ public class JobServiceImpl implements JobService{
                 .createdAt(new Date())
                 .updatedAt(new Date())
                 .images(request.images() != null ? new java.util.ArrayList<>(request.images()) : new java.util.ArrayList<>())
+                .category(category)
                 .build();
 
         job = jobRepository.save(job);
@@ -71,6 +86,11 @@ public class JobServiceImpl implements JobService{
         if (request.location() != null) job.setLocation(request.location());
         if (request.price() != null) job.setPrice(request.price());
         if (request.images() != null) job.setImages(new java.util.ArrayList<>(request.images()));
+        if (request.categoryId() != null) {
+            JobCategory category = categoryRepository.findById(request.categoryId())
+                    .orElseThrow(() -> new BusinessException("Catégorie non trouvée", ErrorCode.NOT_FOUND));
+            job.setCategory(category);
+        }
 
         job.setUpdatedAt(new Date());
         job = jobRepository.save(job);
@@ -127,7 +147,6 @@ public class JobServiceImpl implements JobService{
         job.setUpdatedAt(new Date());
 
         if (status == JobStatus.DONE) {
-            job.setWorker(null);
             auditService.log(currentUser, ActionType.COMPLETE_JOB, "Job: " + jobId);
         }
 
@@ -151,8 +170,40 @@ public class JobServiceImpl implements JobService{
     }
 
     @Override
-    public List<JobOffer> getAvailableJobs() {
-        return jobRepository.findByStatusOrderByCreatedAtDesc(JobStatus.PENDING);
+    public List<JobOffer> getAvailableJobs(String categoryId, String q, BigDecimal minPrice, BigDecimal maxPrice, String sort) {
+        Specification<JobOffer> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("status"), JobStatus.PENDING));
+
+            if (categoryId != null && !categoryId.isBlank()) {
+                predicates.add(cb.equal(root.get("category").get("id"), UUID.fromString(categoryId)));
+            }
+
+            if (q != null && !q.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("title")), "%" + q.toLowerCase() + "%"));
+            }
+
+            if (minPrice != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("price"), minPrice));
+            }
+
+            if (maxPrice != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("price"), maxPrice));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Sort sorting = Sort.by(Sort.Direction.DESC, "createdAt");
+        if (sort != null) {
+            switch (sort) {
+                case "date_asc" -> sorting = Sort.by(Sort.Direction.ASC, "createdAt");
+                case "price_asc" -> sorting = Sort.by(Sort.Direction.ASC, "price");
+                case "price_desc" -> sorting = Sort.by(Sort.Direction.DESC, "price");
+            }
+        }
+
+        return jobRepository.findAll(spec, sorting);
     }
 
     @Override

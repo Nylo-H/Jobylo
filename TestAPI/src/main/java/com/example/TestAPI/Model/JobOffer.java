@@ -49,4 +49,8 @@ public class JobOffer {
     @Column(name = "image_url", length = 512)
     @Builder.Default
     private List<String> images = new ArrayList<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private JobCategory category;
 }

@@ -7,6 +7,7 @@ import com.example.TestAPI.Model.Enum.Role;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -62,4 +63,10 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<ActionLog> actionLogs;
+
+    private Double averageRating;
+
+    private Integer totalRatings;
+
+    private Date lastSeenAt;
 }

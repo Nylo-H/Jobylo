@@ -3,6 +3,7 @@ package com.example.TestAPI.Service.Message;
 import com.example.TestAPI.DTO.Message.ConversationResponse;
 import com.example.TestAPI.DTO.Message.MessageResponse;
 import com.example.TestAPI.DTO.Message.NotificationEvent;
+import com.example.TestAPI.DTO.Message.ReadReceiptEvent;
 import com.example.TestAPI.DTO.Message.SendMessageRequest;
 import com.example.TestAPI.Model.Conversation;
 import com.example.TestAPI.Model.Enum.ActionType;
@@ -17,12 +18,16 @@ import com.example.TestAPI.Service.Audit.KycGuard;
 import com.example.TestAPI.exception.BusinessException;
 import com.example.TestAPI.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -158,16 +163,15 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    public List<MessageResponse> getMessagesByConversation(User currentUser, UUID conversationId) {
+    public Page<MessageResponse> getMessagesByConversation(User currentUser, UUID conversationId, int page, int size) {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new BusinessException("Conversation introuvable", ErrorCode.NOT_FOUND));
 
         verifyParticipant(currentUser, conversation);
 
-        return messageRepository.findByConversationOrderByTimestampAsc(conversation)
-                .stream()
-                .map(this::toMessageResponse)
-                .collect(Collectors.toList());
+        Pageable pageable = PageRequest.of(page, size);
+        return messageRepository.findByConversationOrderByTimestampAsc(conversation, pageable)
+                .map(this::toMessageResponse);
     }
 
     @Override
@@ -181,6 +185,36 @@ public class MessageServiceImpl implements MessageService {
 
         message.setRead(true);
         messageRepository.save(message);
+
+        pushReadReceipt(message.getConversation(), currentUser);
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> markAllConversationAsRead(User currentUser, UUID conversationId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new BusinessException("Conversation introuvable", ErrorCode.NOT_FOUND));
+
+        verifyParticipant(currentUser, conversation);
+
+        int updated = messageRepository.markAllAsReadByConversationAndReceiver(conversation, currentUser);
+
+        if (updated > 0) {
+            pushReadReceipt(conversation, currentUser);
+        }
+
+        return Map.of("markedRead", updated);
+    }
+
+    private void pushReadReceipt(Conversation conversation, User reader) {
+        ReadReceiptEvent event = new ReadReceiptEvent(
+                conversation.getId(),
+                reader.getId(),
+                reader.getUsername(),
+                new Date()
+        );
+
+        messagingTemplate.convertAndSend("/topic/read/" + conversation.getId(), event);
     }
 
     @Override

@@ -20,6 +20,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -50,8 +51,14 @@ public class JobController {
      * Récupérer toutes les annonces disponibles (PENDING)
      */
     @GetMapping("/available")
-    public ResponseEntity<List<JobResponse>> getAvailableJobs() {
-        List<JobResponse> jobs = jobService.getAvailableJobs()
+    public ResponseEntity<List<JobResponse>> getAvailableJobs(
+            @RequestParam(required = false) String categoryId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false, defaultValue = "date_desc") String sort) {
+
+        List<JobResponse> jobs = jobService.getAvailableJobs(categoryId, q, minPrice, maxPrice, sort)
                 .stream()
                 .map(jobMapper::toDTO)
                 .collect(Collectors.toList());

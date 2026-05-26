@@ -2,7 +2,6 @@ package com.example.TestAPI.DTO.User;
 
 import com.example.TestAPI.Model.Enum.KycStatus;
 
-import java.util.List;
 import java.util.UUID;
 
 public record UserResponse(
@@ -14,5 +13,7 @@ public record UserResponse(
         String photoProfile,
         String role,
         boolean verified,
-        KycStatus kycStatus
+        KycStatus kycStatus,
+        Double averageRating,
+        Integer totalRatings
 ) {}

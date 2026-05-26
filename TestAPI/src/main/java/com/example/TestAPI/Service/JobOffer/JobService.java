@@ -7,6 +7,7 @@ import com.example.TestAPI.Model.Enum.JobStatus;
 import com.example.TestAPI.Model.JobOffer;
 import com.example.TestAPI.Model.User;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,7 +19,7 @@ public interface JobService {
     JobOffer getJobById(UUID jobId);
     List<JobOffer> getJobsCreatedByUser(User user);
     List<JobOffer> getJobsAssignedToUser(User user);
-    List<JobOffer> getAvailableJobs();
+    List<JobOffer> getAvailableJobs(String categoryId, String q, BigDecimal minPrice, BigDecimal maxPrice, String sort);
     void deleteJob(UUID jobId, User currentUser);
     JobOffer addImages(UUID jobId, User currentUser, List<String> imageUrls);
     JobOffer removeImage(UUID jobId, User currentUser, String imageUrl);

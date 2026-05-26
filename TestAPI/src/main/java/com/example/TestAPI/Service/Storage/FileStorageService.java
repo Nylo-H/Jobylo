@@ -25,6 +25,7 @@ public class FileStorageService {
         try {
             Files.createDirectories(uploadPath.resolve("kyc"));
             Files.createDirectories(uploadPath.resolve("jobs"));
+            Files.createDirectories(uploadPath.resolve("profiles"));
         } catch (IOException e) {
             throw new RuntimeException("Impossible de créer les dossiers d'upload", e);
         }

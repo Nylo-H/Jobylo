@@ -17,13 +17,14 @@ import com.example.TestAPI.Security.JwtService;
 import com.example.TestAPI.Service.Audit.AuditService;
 import com.example.TestAPI.Service.Otp.OtpService;
 import com.example.TestAPI.Service.RefreshToken.RefreshTokenService;
+import com.example.TestAPI.Service.Storage.FileStorageService;
 import com.example.TestAPI.exception.InvalidPasswordException;
 import com.example.TestAPI.exception.UserAlreadyVerifiedException;
 import com.example.TestAPI.exception.UserNotFoundException;
-import com.example.TestAPI.exception.UserNotVerifiedException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -35,14 +36,16 @@ public class AuthServiceImpl implements AuthService {
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final RefreshTokenService refreshTokenService;
     private final AuditService auditService;
+    private final FileStorageService fileStorageService;
 
-    public AuthServiceImpl(UserRepository userRepo, JwtService jwtService, UserMapper userMapper, OtpService otpService, RefreshTokenService refreshTokenService, AuditService auditService) {
+    public AuthServiceImpl(UserRepository userRepo, JwtService jwtService, UserMapper userMapper, OtpService otpService, RefreshTokenService refreshTokenService, AuditService auditService, FileStorageService fileStorageService) {
         this.userRepo = userRepo;
         this.jwtService = jwtService;
         this.userMapper = userMapper;
         this.otpService = otpService;
         this.refreshTokenService = refreshTokenService;
         this.auditService = auditService;
+        this.fileStorageService = fileStorageService;
     }
 
     @Override
@@ -96,14 +99,25 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public boolean verifyOtp(String email, String code) {
-        return otpService.verifyOtp(email, code);
+    @Transactional
+    public LoginResponse verifyOtp(String email, String code) {
+        User user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        boolean success = otpService.verifyOtp(email, code);
+        if (!success) {
+            throw new RuntimeException("OTP invalide ou expiré");
+        }
+
+        String accesstoken = jwtService.generateToken(user.getUsername());
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+        return new LoginResponse(accesstoken, refreshToken.getToken(), true);
     }
 
     @Transactional
     @Override
     public LoginResponse login(LoginRequest request)  {
-        User user = userRepo.findByUsername(request.username())
+        User user = userRepo.findByEmail(request.email())
                 .orElseThrow(UserNotFoundException::new);
 
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
@@ -111,17 +125,20 @@ public class AuthServiceImpl implements AuthService {
         }
 
         if (!user.isVerified()) {
-            throw new UserNotVerifiedException();
+            auditService.log(user, ActionType.LOGIN, "User non vérifié: " + user.getId());
+            String acesstoken = jwtService.generateToken(user.getUsername());
+            RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+            return new LoginResponse(acesstoken, refreshToken.getToken(), false);
         }
 
         auditService.log(user, ActionType.LOGIN, "User: " + user.getId());
         String acesstoken = jwtService.generateToken(user.getUsername());
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
-        return new LoginResponse(acesstoken, refreshToken.getToken());
+        return new LoginResponse(acesstoken, refreshToken.getToken(), true);
     }
 
-    public void resendOtp(String username) {
-        User user = userRepo.findByUsername(username)
+    public void resendOtp(String email) {
+        User user = userRepo.findByEmail(email)
                 .orElseThrow(UserNotFoundException::new);
 
         if (user.isVerified()) {
@@ -136,7 +153,17 @@ public class AuthServiceImpl implements AuthService {
         RefreshToken refreshToken = refreshTokenService.validateRefreshToken(request.refreshToken());
 
         String newAccessToken = jwtService.generateToken(refreshToken.getUser().getUsername());
-        return new LoginResponse(newAccessToken, refreshToken.getToken());
+        return new LoginResponse(newAccessToken, refreshToken.getToken(), refreshToken.getUser().isVerified());
+    }
+
+    @Override
+    @Transactional
+    public MeResponse updateProfilePhoto(User user, MultipartFile file) {
+        String photoUrl = fileStorageService.store(file, "profiles");
+        user.setPhotoProfil(photoUrl);
+        userRepo.save(user);
+        auditService.log(user, ActionType.UPDATE_PROFILE, "Photo de profil mise à jour");
+        return getCurrentUser(user);
     }
 
     @Override
@@ -148,7 +175,9 @@ public class AuthServiceImpl implements AuthService {
                 user.getRole(),
                 user.isVerified(),
                 user.getKycStatus(),
-                user.getPhotoProfil()
+                user.getPhotoProfil(),
+                user.getAverageRating(),
+                user.getTotalRatings()
         );
     }
 

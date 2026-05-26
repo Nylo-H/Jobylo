@@ -18,5 +18,7 @@ public record JobResponse(
         String status,
         Date createdAt,
         Date updatedAt,
-        List<String> images
+        List<String> images,
+        UUID categoryId,
+        String categoryName
 ) { }
