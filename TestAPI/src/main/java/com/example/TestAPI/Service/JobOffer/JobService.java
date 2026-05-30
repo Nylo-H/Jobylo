@@ -19,7 +19,7 @@ public interface JobService {
     JobOffer getJobById(UUID jobId);
     List<JobOffer> getJobsCreatedByUser(User user);
     List<JobOffer> getJobsAssignedToUser(User user);
-    List<JobOffer> getAvailableJobs(String categoryId, String q, BigDecimal minPrice, BigDecimal maxPrice, String sort);
+    List<JobOffer> getAvailableJobs(String categoryId, String q, BigDecimal minPrice, BigDecimal maxPrice, String sort, String location);
     void deleteJob(UUID jobId, User currentUser);
     JobOffer addImages(UUID jobId, User currentUser, List<String> imageUrls);
     JobOffer removeImage(UUID jobId, User currentUser, String imageUrl);

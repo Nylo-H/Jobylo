@@ -12,6 +12,10 @@ import com.example.TestAPI.Model.RefreshToken;
 import com.example.TestAPI.Model.User;
 import com.example.TestAPI.Security.JwtService;
 import com.example.TestAPI.Service.Auth.AuthService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import com.example.TestAPI.Service.RefreshToken.RefreshTokenService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
@@ -104,4 +109,22 @@ public class AuthController {
         return authService.getCurrentUser(user);
     }
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request.email());
+        return ResponseEntity.ok(Map.of("message", "Si cet email existe, un code de réinitialisation a été envoyé"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.email(), request.otp(), request.newPassword());
+        return ResponseEntity.ok(Map.of("message", "Mot de passe réinitialisé avec succès"));
+    }
+
 }
+
+record ForgotPasswordRequest(@Email @NotBlank String email) {}
+
+record ResetPasswordRequest(@Email @NotBlank String email, @NotBlank String otp, @NotBlank @Size(min = 6) String newPassword) {}

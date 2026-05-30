@@ -7,11 +7,13 @@ import com.example.TestAPI.Repository.UserRepository;
 import com.example.TestAPI.Service.Email.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Random;
 
 @Service
+@Transactional
 @RequiredArgsConstructor
 public class OtpServiceImpl implements OtpService {
 
@@ -21,6 +23,8 @@ public class OtpServiceImpl implements OtpService {
 
     @Override
     public void generateAndSendOtp(User user) {
+        otpRepo.deleteByUser(user);
+
         String otp = String.valueOf(new Random().nextInt(900_000) + 100_000); // 6 chiffres
 
         UserOtp userOtp = UserOtp.builder()
@@ -48,6 +52,21 @@ public class OtpServiceImpl implements OtpService {
         userRepo.save(user);
         otpRepo.delete(otp);
 
+        return true;
+    }
+
+    @Override
+    public boolean validateOtpOnly(String email, String code) {
+        User user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        UserOtp otp = otpRepo.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("OTP non trouvé"));
+
+        if (otp.getExpiry().isBefore(LocalDateTime.now())) return false;
+        if (!otp.getCode().equals(code)) return false;
+
+        otpRepo.delete(otp);
         return true;
     }
 }

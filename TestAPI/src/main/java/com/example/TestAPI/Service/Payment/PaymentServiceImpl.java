@@ -37,18 +37,22 @@ public class PaymentServiceImpl implements PaymentService {
     private final AuditService auditService;
 
     @Override
-    public PaymentResponse initiatePayment(User buyer, UUID jobId) {
-        kycGuard.requireVerified(buyer);
+    public PaymentResponse initiatePayment(User currentUser, UUID jobId) {
+        kycGuard.requireVerified(currentUser);
 
         JobOffer job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new BusinessException("Offre non trouvée", ErrorCode.NOT_FOUND));
 
-        if (job.getWorker() == null || !job.getWorker().getId().equals(buyer.getId())) {
-            throw new BusinessException("Vous devez être le worker assigné pour payer", ErrorCode.FORBIDDEN);
+        if (!job.getCreator().getId().equals(currentUser.getId())) {
+            throw new BusinessException("Seul le créateur du job peut initier le paiement", ErrorCode.FORBIDDEN);
         }
 
-        if (job.getCreator().getId().equals(buyer.getId())) {
-            throw new BusinessException("Vous ne pouvez pas payer votre propre offre", ErrorCode.BAD_REQUEST);
+        if (job.getWorker() == null) {
+            throw new BusinessException("Aucun travailleur assigné à ce job", ErrorCode.BAD_REQUEST);
+        }
+
+        if (job.getStatus() != com.example.TestAPI.Model.Enum.JobStatus.DONE) {
+            throw new BusinessException("Le job doit être terminé avant le paiement", ErrorCode.BAD_REQUEST);
         }
 
         transactionRepository.findByJobId(jobId).ifPresent(t -> {
@@ -61,8 +65,8 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal netAmount = amount.subtract(commissionAmt);
 
         Transaction transaction = Transaction.builder()
-                .buyer(buyer)
-                .seller(job.getCreator())
+                .buyer(job.getCreator())
+                .seller(job.getWorker())
                 .job(job)
                 .amount(amount)
                 .commissionPercentage(commissionPct)
@@ -77,19 +81,19 @@ public class PaymentServiceImpl implements PaymentService {
         transaction = transactionRepository.save(transaction);
         paymentGateway.hold(transaction);
 
-        auditService.log(buyer, ActionType.PAYMENT_INITIATED, "Tx: " + transaction.getId() + " Job: " + jobId + " Amount: " + amount);
+        auditService.log(currentUser, ActionType.PAYMENT_INITIATED, "Tx: " + transaction.getId() + " Job: " + jobId + " Amount: " + amount);
         return toResponse(transaction);
     }
 
     @Override
-    public PaymentResponse confirmDelivery(User buyer, UUID transactionId) {
-        kycGuard.requireVerified(buyer);
+    public PaymentResponse confirmDelivery(User currentUser, UUID transactionId) {
+        kycGuard.requireVerified(currentUser);
 
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new BusinessException("Transaction introuvable", ErrorCode.NOT_FOUND));
 
-        if (!transaction.getBuyer().getId().equals(buyer.getId())) {
-            throw new BusinessException("Seul l'acheteur peut confirmer la livraison", ErrorCode.FORBIDDEN);
+        if (!transaction.getBuyer().getId().equals(currentUser.getId())) {
+            throw new BusinessException("Seul l'acheteur (créateur du job) peut confirmer le paiement", ErrorCode.FORBIDDEN);
         }
 
         if (transaction.getStatus() != PaymentStatus.HELD) {
@@ -102,7 +106,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         paymentGateway.release(transaction);
 
-        auditService.log(buyer, ActionType.PAYMENT_CONFIRMED, "Tx: " + transaction.getId() + " Net: " + transaction.getNetAmount());
+        auditService.log(currentUser, ActionType.PAYMENT_CONFIRMED, "Tx: " + transaction.getId() + " Net: " + transaction.getNetAmount());
         return toResponse(transaction);
     }
 

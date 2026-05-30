@@ -1,10 +1,14 @@
 package com.example.TestAPI.Controller;
 
 import com.example.TestAPI.DTO.User.UserCreateRequest;
-import com.example.TestAPI.DTO.User.UserUpdateRequest;
 import com.example.TestAPI.DTO.User.UserResponse;
+import com.example.TestAPI.DTO.User.UserStatsResponse;
+import com.example.TestAPI.DTO.User.UserUpdateRequest;
 import com.example.TestAPI.Model.User;
+import com.example.TestAPI.Service.Auth.AuthService;
 import com.example.TestAPI.Service.User.UserService;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,9 +19,11 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
+    private final AuthService authService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, AuthService authService) {
         this.userService = userService;
+        this.authService = authService;
     }
 
     @PostMapping
@@ -56,5 +62,11 @@ public class UserController {
     @DeleteMapping("/{id}")
     public void deleteUser(@PathVariable UUID id) {
         userService.deleteUser(id);
+    }
+
+    @GetMapping("/me/stats")
+    @PreAuthorize("isAuthenticated()")
+    public UserStatsResponse getMyStats(@AuthenticationPrincipal User currentUser) {
+        return authService.getUserStats(currentUser);
     }
 }

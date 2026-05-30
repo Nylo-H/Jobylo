@@ -56,9 +56,10 @@ public class JobController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
-            @RequestParam(required = false, defaultValue = "date_desc") String sort) {
+            @RequestParam(required = false, defaultValue = "date_desc") String sort,
+            @RequestParam(required = false) String location) {
 
-        List<JobResponse> jobs = jobService.getAvailableJobs(categoryId, q, minPrice, maxPrice, sort)
+        List<JobResponse> jobs = jobService.getAvailableJobs(categoryId, q, minPrice, maxPrice, sort, location)
                 .stream()
                 .map(jobMapper::toDTO)
                 .collect(Collectors.toList());

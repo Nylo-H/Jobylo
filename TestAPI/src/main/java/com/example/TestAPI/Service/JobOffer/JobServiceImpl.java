@@ -3,11 +3,14 @@ package com.example.TestAPI.Service.JobOffer;
 import com.example.TestAPI.DTO.Job.AssignJobRequest;
 import com.example.TestAPI.DTO.Job.CreateJobRequest;
 import com.example.TestAPI.DTO.Job.UpdateJobRequest;
+import com.example.TestAPI.Model.Application;
 import com.example.TestAPI.Model.Enum.ActionType;
+import com.example.TestAPI.Model.Enum.ApplicationStatus;
 import com.example.TestAPI.Model.Enum.JobStatus;
 import com.example.TestAPI.Model.JobCategory;
 import com.example.TestAPI.Model.JobOffer;
 import com.example.TestAPI.Model.User;
+import com.example.TestAPI.Repository.ApplicationRepository;
 import com.example.TestAPI.Repository.JobCategoryRepository;
 import com.example.TestAPI.Repository.JobOfferRepository;
 import com.example.TestAPI.Repository.UserRepository;
@@ -19,6 +22,7 @@ import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +30,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -36,8 +41,10 @@ public class JobServiceImpl implements JobService{
     private final JobOfferRepository jobRepository;
     private final UserRepository userRepository;
     private final JobCategoryRepository categoryRepository;
+    private final ApplicationRepository applicationRepository;
     private final KycGuard kycGuard;
     private final AuditService auditService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     public JobOffer createJob(User creator, CreateJobRequest request) {
@@ -121,6 +128,24 @@ public class JobServiceImpl implements JobService{
 
         kycGuard.requireVerified(worker);
 
+        applicationRepository.findByJobAndWorker(job, worker)
+                .ifPresent(app -> {
+                    app.setStatus(ApplicationStatus.ACCEPTED);
+                    applicationRepository.save(app);
+                });
+
+        List<Application> others = applicationRepository.findByJobAndStatus(job, ApplicationStatus.PENDING);
+        for (Application app : others) {
+            app.setStatus(ApplicationStatus.REJECTED);
+            applicationRepository.save(app);
+            messagingTemplate.convertAndSend("/topic/notifications/" + app.getWorker().getId(), Map.of(
+                    "type", "APPLICATION_REJECTED",
+                    "jobId", jobId.toString(),
+                    "jobTitle", job.getTitle(),
+                    "message", "L'offre a été attribuée à un autre candidat"
+            ));
+        }
+
         job.setWorker(worker);
         job.setStatus(JobStatus.IN_PROGRESS);
         job.setUpdatedAt(new Date());
@@ -170,7 +195,7 @@ public class JobServiceImpl implements JobService{
     }
 
     @Override
-    public List<JobOffer> getAvailableJobs(String categoryId, String q, BigDecimal minPrice, BigDecimal maxPrice, String sort) {
+    public List<JobOffer> getAvailableJobs(String categoryId, String q, BigDecimal minPrice, BigDecimal maxPrice, String sort, String location) {
         Specification<JobOffer> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("status"), JobStatus.PENDING));
@@ -189,6 +214,10 @@ public class JobServiceImpl implements JobService{
 
             if (maxPrice != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("price"), maxPrice));
+            }
+
+            if (location != null && !location.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("location")), "%" + location.toLowerCase() + "%"));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

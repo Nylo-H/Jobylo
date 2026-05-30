@@ -18,4 +18,9 @@ public interface JobOfferRepository extends JpaRepository<JobOffer, UUID>, JpaSp
     List<JobOffer> findByStatusAndLocationContainingIgnoreCase(JobStatus status, String location);
 
     List<JobOffer> findByWorkerId(UUID workerId);
+
+    long countByCreatorAndStatus(User creator, JobStatus status);
+    long countByWorkerAndStatus(User worker, JobStatus status);
+    long countByCreator(User creator);
+    long countByStatus(JobStatus status);
 }

@@ -6,18 +6,25 @@ import com.example.TestAPI.DTO.Login.RegisterRequest;
 import com.example.TestAPI.DTO.Me.MeResponse;
 import com.example.TestAPI.DTO.Token.RefreshRequest;
 import com.example.TestAPI.DTO.User.UserResponse;
+import com.example.TestAPI.DTO.User.UserStatsResponse;
 import com.example.TestAPI.Mapper.UserMapper;
 import com.example.TestAPI.Model.Enum.ActionType;
+import com.example.TestAPI.Model.Enum.JobStatus;
 import com.example.TestAPI.Model.Enum.KycStatus;
 import com.example.TestAPI.Model.Enum.Role;
 import com.example.TestAPI.Model.RefreshToken;
 import com.example.TestAPI.Model.User;
+import com.example.TestAPI.Repository.ApplicationRepository;
+import com.example.TestAPI.Repository.JobOfferRepository;
 import com.example.TestAPI.Repository.UserRepository;
 import com.example.TestAPI.Security.JwtService;
 import com.example.TestAPI.Service.Audit.AuditService;
 import com.example.TestAPI.Service.Otp.OtpService;
 import com.example.TestAPI.Service.RefreshToken.RefreshTokenService;
+import com.example.TestAPI.Service.RateLimiter.ForgotPasswordRateLimiter;
 import com.example.TestAPI.Service.Storage.FileStorageService;
+import com.example.TestAPI.exception.BusinessException;
+import com.example.TestAPI.exception.ErrorCode;
 import com.example.TestAPI.exception.InvalidPasswordException;
 import com.example.TestAPI.exception.UserAlreadyVerifiedException;
 import com.example.TestAPI.exception.UserNotFoundException;
@@ -30,6 +37,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepo;
+    private final JobOfferRepository jobOfferRepository;
+    private final ApplicationRepository applicationRepository;
     private final JwtService jwtService;
     private final UserMapper userMapper;
     private final OtpService otpService;
@@ -37,15 +46,19 @@ public class AuthServiceImpl implements AuthService {
     private final RefreshTokenService refreshTokenService;
     private final AuditService auditService;
     private final FileStorageService fileStorageService;
+    private final ForgotPasswordRateLimiter rateLimiter;
 
-    public AuthServiceImpl(UserRepository userRepo, JwtService jwtService, UserMapper userMapper, OtpService otpService, RefreshTokenService refreshTokenService, AuditService auditService, FileStorageService fileStorageService) {
+    public AuthServiceImpl(UserRepository userRepo, JobOfferRepository jobOfferRepository, ApplicationRepository applicationRepository, JwtService jwtService, UserMapper userMapper, OtpService otpService, RefreshTokenService refreshTokenService, AuditService auditService, FileStorageService fileStorageService, ForgotPasswordRateLimiter rateLimiter) {
         this.userRepo = userRepo;
+        this.jobOfferRepository = jobOfferRepository;
+        this.applicationRepository = applicationRepository;
         this.jwtService = jwtService;
         this.userMapper = userMapper;
         this.otpService = otpService;
         this.refreshTokenService = refreshTokenService;
         this.auditService = auditService;
         this.fileStorageService = fileStorageService;
+        this.rateLimiter = rateLimiter;
     }
 
     @Override
@@ -181,5 +194,55 @@ public class AuthServiceImpl implements AuthService {
         );
     }
 
+    @Override
+    public UserStatsResponse getUserStats(User user) {
+        long totalJobsCreated = jobOfferRepository.countByCreator(user);
+        long totalJobsInProgress = jobOfferRepository.countByWorkerAndStatus(user, JobStatus.IN_PROGRESS);
+        long totalJobsCompleted = jobOfferRepository.countByWorkerAndStatus(user, JobStatus.DONE);
+        long totalApplicationsReceived = applicationRepository.countByJob_Creator(user);
+        long totalApplicationsSent = applicationRepository.countByWorker(user);
+
+        return new UserStatsResponse(
+                totalJobsCreated,
+                totalJobsInProgress,
+                totalJobsCompleted,
+                user.getAverageRating(),
+                user.getTotalRatings() != null ? user.getTotalRatings() : 0,
+                totalApplicationsReceived,
+                totalApplicationsSent
+        );
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(String email) {
+        rateLimiter.check(email);
+
+        User user = userRepo.findByEmail(email).orElse(null);
+        if (user == null) {
+            return;
+        }
+
+        otpService.generateAndSendOtp(user);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(String email, String otp, String newPassword) {
+        boolean valid = otpService.validateOtpOnly(email, otp);
+        if (!valid) {
+            throw new BusinessException("Code invalide ou expiré", ErrorCode.BAD_REQUEST);
+        }
+
+        User user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new BusinessException("Utilisateur non trouvé", ErrorCode.NOT_FOUND));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepo.save(user);
+
+        rateLimiter.clear(email);
+
+        auditService.log(user, ActionType.PASSWORD_RESET, "User: " + user.getId());
+    }
 
 }

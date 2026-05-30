@@ -8,9 +8,9 @@ import java.util.UUID;
 
 public interface PaymentService {
 
-    PaymentResponse initiatePayment(User buyer, UUID jobId);
+    PaymentResponse initiatePayment(User currentUser, UUID jobId);
 
-    PaymentResponse confirmDelivery(User buyer, UUID transactionId);
+    PaymentResponse confirmDelivery(User currentUser, UUID transactionId);
 
     PaymentResponse getTransaction(UUID transactionId);
 

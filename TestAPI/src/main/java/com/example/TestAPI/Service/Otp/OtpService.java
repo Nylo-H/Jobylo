@@ -7,4 +7,6 @@ public interface OtpService {
     void generateAndSendOtp(User user); // uniformisé avec le Impl
 
     boolean verifyOtp(String email, String code); // on vérifie par email
+
+    boolean validateOtpOnly(String email, String code); // vérifie OTP sans marquer verified
 }

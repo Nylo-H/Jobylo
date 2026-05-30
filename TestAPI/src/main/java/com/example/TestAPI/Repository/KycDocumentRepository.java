@@ -17,4 +17,6 @@ public interface KycDocumentRepository extends JpaRepository<KycDocument, UUID> 
     List<KycDocument> findByStatusOrderBySubmittedAtDesc(KycStatus status);
 
     List<KycDocument> findAllByOrderBySubmittedAtDesc();
+
+    long countByStatus(KycStatus status);
 }

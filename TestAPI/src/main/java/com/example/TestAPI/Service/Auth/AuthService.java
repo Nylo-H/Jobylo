@@ -6,6 +6,7 @@ import com.example.TestAPI.DTO.Login.RegisterRequest;
 import com.example.TestAPI.DTO.Me.MeResponse;
 import com.example.TestAPI.DTO.Token.RefreshRequest;
 import com.example.TestAPI.DTO.User.UserResponse;
+import com.example.TestAPI.DTO.User.UserStatsResponse;
 import com.example.TestAPI.Model.User;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,4 +19,9 @@ public interface AuthService {
     LoginResponse refreshToken(@RequestBody  RefreshRequest request);
     MeResponse getCurrentUser(User user);
     MeResponse updateProfilePhoto(User user, MultipartFile file);
+    UserStatsResponse getUserStats(User user);
+
+    void forgotPassword(String email);
+
+    void resetPassword(String email, String otp, String newPassword);
 }
